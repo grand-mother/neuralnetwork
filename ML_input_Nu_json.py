@@ -582,8 +582,7 @@ for event in EventIterator(json_file):#"events-flat.json"): #json files contains
             print multip
                 
         path, filename = os.path.split(json_file)
-        info= "tag: "+str(event["tag"]) + ", in json:" + filename, "distance to decay in m: ", Dd
-                    
+                  
 
         ## create a folder in $TMP for each event
         out_dir = "./"#+ str(event["tag"])
@@ -627,6 +626,11 @@ for event in EventIterator(json_file):#"events-flat.json"): #json files contains
         ANTENNAS2, sel = reduce_antenna_array(decay_altitude,theta, azimuth,ANTENNAS,CORE,DISPLAY)#, core)
         #print ANTENNAS[sel] #sel
         
+        # refernce our has to be stored for comparison im treatment.py
+        ANTENNAS.T[1]=ANTENNAS.T[1]+CORE[1]
+       
+        
+        
         AZ=0. # array always facing NORTH
         if AZ!=0.:
                 ANTENNAS3 = rotate_antenna_array(ANTENNAS2,azimuth)
@@ -638,7 +642,8 @@ for event in EventIterator(json_file):#"events-flat.json"): #json files contains
         # what I need is the index of that chosen antennas and write the antenna with the specific index to the inpfile. not the spoistion of thechosen antenna since then it will be alwaysthe same.
                 
                 
-                
+        info= "tag: "+str(event["tag"]) + ", in json:" + filename, "distance to decay in m: ", Dd, " core off in y inm ", r+d
+
         ### produce ZHaires file
         if ANTENNAS3.size:
             #print('array is not empty')
@@ -666,6 +671,12 @@ for event in EventIterator(json_file):#"events-flat.json"): #json files contains
             totito  = generate_input(showerID, etot, azimuth, theta, multip, decay_altitude,ANTENNAS3, info) # modified c.t. originl module
             inpfile.write(totito)
             inpfile.close()
+            
+            ref_array=inp_dir+'/' +"MLtoy_{:06d}.list".format(showerID)
+            file4= open(ref_array, 'w')
+            for i in np.arange(0,len(ANTENNAS.T[0])):
+                file4.write('{0:11.3f} {1:11.3f}  {2:11.3f}\n'.format(ANTENNAS[i,0], ANTENNAS[i,1], ANTENNAS[i,2])) # pos in cm
+            file4.close() 
         else:
             print('array is empty - no antennas simulated')
 
