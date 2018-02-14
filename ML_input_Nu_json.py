@@ -45,6 +45,8 @@ def generate_input(task=0,energy=None, azimuth=None, zenith=None, products=None,
     """Generate the input stream for ZHAireS."""
 
     zen,azim = GRANDtoZHAireS(zenith,azimuth)
+    if zen >90. and azim >180. and azim <360.: # upgoing shower will be corrected theta_grand<90deg
+            azim= azim-360
 
     a=" ".join(map(str, products))
     b="".join( c for c in a if  c not in "(),[]''")
@@ -288,7 +290,7 @@ def getCore(zen_rad=None, alpha=None,  distance=10000, GdAlt=1500., injh=2800.):
     
 
 ##########################################################################################################
-def reduce_antenna_array(injh=None,theta=None,azim=None,ANTENNAS=None, core=[5000.,0.,0.],DISPLAY=False): 
+def reduce_antenna_array(injh=None,theta=None,azim=None,ANTENNAS=None, core=[0.,0.,0.],DISPLAY=False): 
     """ Reduce the size of the initialized radio array to the shower geometrical footprint by computing the angle between shower and decay-point-to-antenna axes """
     """ theta = zenith in ZHAireS convention [in deg], injh = injection height [in m] """
 
@@ -315,7 +317,7 @@ def reduce_antenna_array(injh=None,theta=None,azim=None,ANTENNAS=None, core=[500
     ANTENNAS2 = ANTENNAS1[sel,:]
 
     # Remove the farthest antennas to reduce the number of antenna positions to simulate so that this number falls below 1000
-    while np.shape(sel)[0]>1200:#999:
+    while np.shape(sel)[0]>999:
         x_ant_max = np.max(ANTENNAS2[:,0])
         antisel = np.where(ANTENNAS2[:,0]==x_ant_max)[0]
         ANTENNAS2= np.delete(ANTENNAS2,antisel,0)
@@ -327,8 +329,10 @@ def reduce_antenna_array(injh=None,theta=None,azim=None,ANTENNAS=None, core=[500
         ant_map_i[sel]=1.
         cc = np.zeros((np.size(ant_map_i),3))
         cc[np.where(ant_map_i==0),:]=[1,1,1]
-        #array_display(ANTENNAS,ant_angle,'Shower axis to decay point-antenna axis angle map')
+        #array_display(ANTENNAS1,ant_angle,'Shower axis to decay point-antenna axis angle map')
         array_display(ANTENNAS1,cc,'Selected antenna map')
+        #array_display([0.,0.,injh], "b", "decay point")
+        
 
     return ANTENNAS2, sel
 
@@ -502,9 +506,11 @@ for event in EventIterator(json_file):#"events-flat.json"): #json files contains
             azimuth = 360.-azimuth
         print "azimuth: ", azimuth
         
-        if (azimuth >90.) and (azimuth<270.):
+        
+        if (azimuth >90.) and (azimuth<270.): # GRAND, array facing azimuthGRAND=0deg
             print "azimuth outside field of view"
             continue
+
         
 
         ####### STUDY IMPACT OF SEVERAL DECAY PRODUCTS 
@@ -614,15 +620,16 @@ for event in EventIterator(json_file):#"events-flat.json"): #json files contains
         ### Randomize the position of the core of the array in Y  (along EAST WEST)
         #NOTE: check what this function is doing
         ra=np.random.rand(1,1)-0.5
-        r=ra[0,0]*35000./2.
-        d=Dd* np.tan(np.radians(azimuth))
-        print r, d
-        CORE = np.array([0.,r+d,0.])#random_array_pos(slope,sep)
+        r=ra[0,0]*5000/2# 35000./2.
+        d=Dd* np.tan(np.radians(azimuth)) 
+        print r, d, " distance ",Dd
+        CORE = np.array([0.,r+d,0.])#random_array_pos(slope,sep) -> offset in y 
         print "Core at : ", CORE
         #ANTENNAS.T[0]=ANTENNAS.T[1] + CORE[1]
-        ANTENNAS.T[0]=ANTENNAS.T[0] + Dd
+        ANTENNAS.T[0]=ANTENNAS.T[0] + Dd # offset in x 
         
         ### Reduce the radio array to the shower geometrical footprint (we account for a footprint twice larger than the Cherenkov angle)
+        # offset in y introduced
         ANTENNAS2, sel = reduce_antenna_array(decay_altitude,theta, azimuth,ANTENNAS,CORE,DISPLAY)#, core)
         #print ANTENNAS[sel] #sel
         
@@ -631,7 +638,7 @@ for event in EventIterator(json_file):#"events-flat.json"): #json files contains
        
         
         
-        AZ=0. # array always facing NORTH
+        AZ=0. # ATTENTION: array always facing NORTH
         if AZ!=0.:
                 ANTENNAS3 = rotate_antenna_array(ANTENNAS2,azimuth)
         else:
@@ -653,7 +660,7 @@ for event in EventIterator(json_file):#"events-flat.json"): #json files contains
             #Output directory for ZHAireS results.
             #DATAFS = work_dir+'/showerdata/'
             #showerdata_file = DATAFS+os.path.splitext(os.path.basename(danton_lib))[0]+'-showerdata.txt'
-            inp_dir = work_dir+'/' +"{:06d}".format(showerID) +'/'
+            inp_dir = work_dir+'/' #+"{:06d}".format(showerID) +'/'
             #if not(os.path.isdir(DATAFS)):
                 #os.mkdir(DATAFS)
             if not(os.path.isdir(inp_dir)):
@@ -674,8 +681,8 @@ for event in EventIterator(json_file):#"events-flat.json"): #json files contains
             
             ref_array=inp_dir+'/' +"MLtoy_{:06d}.list".format(showerID)
             file4= open(ref_array, 'w')
-            for i in np.arange(0,len(ANTENNAS.T[0])):
-                file4.write('{0:11.3f} {1:11.3f}  {2:11.3f}\n'.format(ANTENNAS[i,0], ANTENNAS[i,1], ANTENNAS[i,2])) # pos in cm
+            for i in np.arange(0,len(ANTENNAS3.T[0])):
+                file4.write('{0:11.3f} {1:11.3f}  {2:11.3f}\n'.format(ANTENNAS3[i,0]-Dd, ANTENNAS3[i,1] -CORE[1], ANTENNAS3[i,2])) # pos in cm, corrected for offsets
             file4.close() 
         else:
             print('array is empty - no antennas simulated')
