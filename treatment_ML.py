@@ -1,3 +1,4 @@
+
 ''' this script bases on a script provided by S.LeCoz to filter, mimic digitization and add noise after applying an antenna response
     It can be only applied for complete array or single antenna positions having array.dat and antpos.dat as file
     
@@ -33,8 +34,8 @@ def Digitization(v,t,tstep,TSAMPLING,SAMPLESIZE):
     vf=np.zeros(SAMPLESIZE)
     tf=np.zeros(SAMPLESIZE)  
     ratio=int(round(TSAMPLING/tstep))
-    #ind=np.arange(0,int(np.floor(len(v)/ratio)))*ratio
-    ind=np.arange(0,int(np.int(len(v)/ratio)))*ratio
+    ind=np.arange(0,int(np.floor(len(v)/ratio)))*ratio
+    #ind=np.arange(0,int(np.int(len(v)/ratio)))*ratio
 
     if len(ind)>SAMPLESIZE:
         ind=ind[0:TSAMPLING]
@@ -67,7 +68,7 @@ FREQMAX=200e6 #Hz, 250MHz
 #print " time binning sims ", tstep
 
 print 'original sampling per antenna', int(3e-6/TSAMPLING)
-times=12 # multiply time window to cover times of complete array
+times=60 # multiply time window to cover times of complete array
 SAMPLESIZE=int(times* 3e-6/TSAMPLING) #=times* 1500, times* 3e-6sec length # traces lenth of system# assuming ~times*1km extent of footprint along showeraxis
 print 'new one ', SAMPLESIZE
 vrms=15 #uvolts, noise level
@@ -124,27 +125,46 @@ if len(sys.argv)<3: # grep all antennas from the antenna file
     pos_sim=positions_sim.tolist()
     
     start_time=1.
+    end_time=0.
     ant=0
+    ant2=0
 
     ##### find minimum and maximum time in whole array
     for j in range(start,len(pos_sim)):
         try:
             #antenna_ID=pos_sim.index(pos[l]) # ID of simulated antenna 
+            ### field in muV and time in s
             voltage_trace=path+"/out_"+str(j)+".txt"
             #voltage_trace=path+"/a"+str(l)+".trace"#"/out_"+str(antenna_ID)+".txt"
 
             try: 
                 text=np.loadtxt(voltage_trace)#'
-                #print min(text.T[0])-b, (min(text.T[0])-b)/(text.T[0,5]-text.T[0,4])
-                #print min(text.T[0])
+                ## if first time in simulated signal wanted
                 if start_time>min(text.T[0]):
                     start_time=min(text.T[0])
                     ant=l
+                    
+            #### if trigger time wanted
+                ## find trigger time 
+                #Vrms=15 # muV
+                #trigger = abs(text.T[1]+text.T[2]) > 3.*Vrms
+                #sel = np.where(trigger)[0][0] # first bin when value exceeded
+                #triggertime=text[sel,0]
+                ##print sel, triggertime
+                
+                #if start_time>triggertime:
+                    #start_time=triggertime
+                    #ant=j
+                    
+                    
+                if end_time<max(text.T[0]):
+                    end_time=max(text.T[0])
+                    ant2=l
             except IndexError, ValueError:
                 continue
         except:# ValueError, IndexError:
             continue
-    print "starttime ", start_time, ant
+    print "starttime ", start_time, ant, "endtime ", end_time, ant2, "diff in s ", (end_time-start_time) , "compare to ", times* 3e-6, start_time+times* 3e-6
     
     #print pos_sim
     #print "\n"
@@ -169,26 +189,46 @@ if len(sys.argv)<3: # grep all antennas from the antenna file
             except IOError:
                 print "IOError ..."
                 continue
-            DISPLAY=1
+            
+            
+        #### if trigger time wanted
+            #print "min(t) ", min(text[:,0]), "start_time ", start_time
+            #if (min(text[:,0]) < start_time): # get rid of the time bins before the signal starts
+            ## NOTE Add here how to treat time traces which has to get shorten
+                ## find time bin of same value
+                #a= np.where(text.T[0]==start_time)
+                #print a
+                #t=text[a:-1,0] # in s
+                #vx=text[a:-1,1] #EW axis antenna
+                #vy=text[a:-1,2] #NS axis antenna
+                #vz=text[a:-1,3] #vertical axis antenna
+            #else:
+                #t=text[:,0] # in s
+                #vx=text[:,1] #EW axis antenna
+                #vy=text[:,2] #NS axis antenna
+                #vz=text[:,3] #vertical axis antenna        
+                
             t=text[:,0] # in s
             vx=text[:,1] #EW axis antenna
             vy=text[:,2] #NS axis antenna
-            vz=text[:,3] #vertical axis antenna
+            vz=text[:,3] #vertical axis antenna    
             
+            
+            #DISPLAY=1
             if DISPLAY==1:
                 plt.plot(t*1e9,vx) # s*1e9 = ns
-                plt.plot(t*1e9,vy)
-                plt.plot(t*1e9,vz)
-                plt.xlabel('Time [ns]')
-                plt.ylabel('Voltage [uV]')
-                plt.title('raw voltage trace')
-                plt.show()
+                #plt.plot(t*1e9,vy)
+                #plt.plot(t*1e9,vz)
+                #plt.xlabel('Time [ns]')
+                #plt.ylabel('Voltage [uV]')
+                #plt.title('raw voltage trace')
+                #plt.show()
 
             tstep=t[5]-t[4]#1e-9, sec, time bins in simulations
             #print "antenna ", str(l)," time binning sims ", tstep, 'total trace length :', t[-1]-t[0], len(t)
 
 #### find offset between min(t) and start_time, add zeros to voltage traces and binned time array to t
-            if (min(t) => start_time): # add the additional time 
+            if (min(t) >= start_time): # add the additional time 
                 nb=int(round((min(t)-start_time)/tstep))
                 v_off=np.zeros(nb)
                 vx=np.concatenate((v_off,vx))
@@ -208,32 +248,32 @@ if len(sys.argv)<3: # grep all antennas from the antenna file
 
             
             if DISPLAY==1:
-                plt.plot(t*1e9,vx) # s*1e9 = ns
+                #plt.plot(t*1e9,vx) # s*1e9 = ns
                 plt.plot(t*1e9,vy)
-                plt.plot(t*1e9,vz)
-                plt.xlabel('Time [ns]')
-                plt.ylabel('Voltage [uV]')
-                plt.title('raw voltage trace, extended')
-                plt.show()
+                #plt.plot(t*1e9,vz)
+                #plt.xlabel('Time [ns]')
+                #plt.ylabel('Voltage [uV]')
+                #plt.title('raw voltage trace, extended')
+                #plt.show()
                 
             #Filtering in frequency band
             vx=Filtering(vx,tstep,FREQMIN,FREQMAX)
             vy=Filtering(vy,tstep,FREQMIN,FREQMAX)
             vz=Filtering(vz,tstep,FREQMIN,FREQMAX)
             if DISPLAY==1:
-                plt.plot(t*1e9,vx)
+                #plt.plot(t*1e9,vx)
                 plt.plot(t*1e9,vy)
-                plt.plot(t*1e9,vz)
-                plt.xlabel('Time [ns]')
-                plt.ylabel('Voltage [uV]')
-                plt.title('filtered voltage trace')
+                #plt.plot(t*1e9,vz)
+                #plt.xlabel('Time [ns]')
+                #plt.ylabel('Voltage [uV]')
+                #plt.title('filtered voltage trace')
                 plt.show()
             
             
 ## fill up antenna which were not included in the sim            
         except ValueError:
-            #print "   antenna position not simulated" # empty time traces have to be created and just handed over to the rest
-            
+            print "   antenna position not simulated" # empty time traces have to be created and just handed over to the rest
+           
             tstep=1e-9# sec, time bins in simulations
             nbins=1024 # bin number from simulations
             
@@ -322,3 +362,4 @@ if len(sys.argv)<3: # grep all antennas from the antenna file
         alld = np.transpose([tx,vx,vy,vz])
         np.savetxt(filename,alld,fmt='%.4e')  
         #print "saved as ", filename
+
