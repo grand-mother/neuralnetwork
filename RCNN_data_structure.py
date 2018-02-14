@@ -14,8 +14,8 @@ from IPython.display import HTML
 
 wholearray='./MLtoy_antenna.list'
 
-simdir="./"
-inpfile=simdir+'D40000-Z45-1003014.inp'
+simdir="./test_nu/000001/"
+inpfile=simdir+'000001.inp'
 
 
 
@@ -78,7 +78,7 @@ with open(inpfile, 'r') as file:
 ### Get time array
 #Grab the time array from the first antenna. Since the time arrays are the same in all the files we can just use the first one. We don't actually use it at all, but it's probably worth saving anyway.
 
-antenna_data = np.loadtxt('fake_0.txt')
+antenna_data = np.loadtxt(simdir+'/fake_0.txt')
 time = antenna_data[:, 0]
 
 ### Create numpy array of entire event
@@ -90,7 +90,7 @@ array = np.zeros((time.shape[0], len(xs), len(ys), 3))
 ##Simply loop through the files and put all the data from each antenna into the correct array position using the indices we found before. This might take quite a long time due to the I/O time of loading and processing the .txt file
 
 for antenna in tqdm.tqdm(range(array_positions.shape[0])):
-    antenna_data = np.loadtxt('fake_' + str(antenna) + '.txt')[:, 1:]
+    antenna_data = np.loadtxt(simdir+'/fake_' + str(antenna) + '.txt')[:, 1:]
     array[:, array_indices[antenna][0], array_indices[antenna][1], :] = antenna_data
 
 ### Save the event
@@ -100,6 +100,7 @@ np.savez('event.npz', particle = particle, energy = energy, zenith = zenith, azi
 
 ### Notes
 #It's important that all the array positions are constant over every single event (which is obvious) but it's also important that the time arrays are the same in every event. The initial time does not need to be the beginning of the shower. One interesting thing that we will find that if we use the initial time as the start of the shower then the network will actually extract more information (artificially) about how long it takes for the shower to reach the array (which is a priori unknown, but is available information in an online setting) to do the classification. This is either deceptive or cool depending on which way you look at it.
+#Anne: the initial time when the shower starts is just know in simulations since there the time starts with the first interaction of the shower. In the expereiment, just the realtive timing between single antennas will be known.
 
         
         
@@ -108,7 +109,7 @@ np.savez('event.npz', particle = particle, energy = energy, zenith = zenith, azi
         
 #### Test loaded array
 #To check that the arrays have been loaded correctly we can plot the difference between the maximum and the minimum signals over all time bins for the 100x100 array which should give a ring over the simulated antennas which are in the low-x low-y corner of the entire array.
-TEST=False
+TEST=True
 if TEST:
     maximum_minimum_difference = np.max(array, axis = 0) - np.min(array, axis = 0)
     min_diff = np.min(maximum_minimum_difference)
